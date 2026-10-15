@@ -1,0 +1,132 @@
+# deadbot
+
+A Discord bot that helps Deadlock players find teammates. Link a Steam account and the bot
+shows your playstyle and the people you play best with. Later phases add LFG posts and
+party-fit recommendations.
+
+Data comes from [deadlock-api.com](https://deadlock-api.com), a community API that is not
+affiliated with Valve.
+
+## Status
+
+| Phase | Scope | State |
+|---|---|---|
+| 1 | Scaffold, DB, API client, `/link`, `/unlink`, `/profile`, `/teammates`, sync job | **done** |
+| 2 | `/card`, `/settings`, `/setup`, `/lfg`, `/fill`, `/synergy`, matching | planned |
+| 3 | Dump ingestion, hero role clustering, LightGBM and two-tower synergy models, eval | planned |
+| 4 | Fly.io deploy, structured logging, usage metrics | planned |
+
+## Commands (Phase 1)
+
+| Command | Visibility | What it does |
+|---|---|---|
+| `/link <account>` | ephemeral | Accepts a Steam profile URL, custom URL name, SteamID64, `[U:1:N]` or `STEAM_0:X:Y`. Checks that the account has Deadlock matches, links it, then imports history in the background. |
+| `/unlink` | ephemeral | Removes your link. |
+| `/profile [user]` | public | Rank, record, top heroes, hero-type mix, and typical play hours (shown in each viewer's local time). |
+| `/teammates [user] [sort] [min_games]` | public | Teammates with ≥N games together: win rate together vs. your baseline, synergy, premade count, and best hero duo. Linked members of the server are highlighted. |
+
+Errors are always ephemeral.
+
+## How the data works
+
+### Findings that shaped the design
+- **There are no party IDs.** `match_player.party` is always 0 in both the live data and the
+  dumps. Premades are inferred per match from two signals, stored as a bitmask in
+  `match_party_links.sources`:
+  1. `friends`: the API's `mate-stats?same_party=true` (same team and Steam friends at match start).
+  2. `session`: teammates in back-to-back matches less than 90 minutes apart.
+
+  The overall same-team ratio is *not* used. At high rank, friends often play against each
+  other, and in one sample the ratio barely separated friends from strangers (median 0.51 vs 0.48).
+- **There is no MMR.** All MMR endpoints are deprecated. Rank is the badge
+  (`tier*10 + subrank`) from `/v1/players/{id}/rank`.
+- **Roles are Valve's official `hero_type`** (brawler, marksman, mystic, assassin) for now.
+  Phase 3 adds roles clustered from item builds.
+- `won = match_result == player_team`. `player_match_outcome` is 0 for older matches.
+
+### Synergy (Phase 1)
+For a pair on the same team:
+
+```
+p_a, p_b  = each player's win rate excluding their shared games
+expected  = sigmoid(logit p_a + logit p_b)        # individual edges add up
+shrunk    = (wins_together + k·expected) / (games_together + k)    # k = 20 by default
+synergy   = shrunk − expected
+```
+
+### Storage
+Postgres only stores data about linked users. On average that's roughly 0.5 MB per user:
+their own match rows plus per-match detail for their top 25 teammates. Redis is a bounded
+LRU cache (256 MB in compose) for API responses and computed reports. Report cache keys
+include `last_synced_at`, so they invalidate themselves after each sync. The 539 GB
+`match_player` dump is never copied into Postgres. Phase 3 reads only the columns it needs
+from the public Parquet lake with DuckDB and writes the model outputs back.
+
+### Schema
+`players`, `users`, `matches`, `match_players`, `match_party_links`, `pair_stats`. See
+[models.py](src/deadbot/data/db/models.py) and [migrations/](migrations/).
+
+## Setup
+
+### 1. Create the Discord application
+1. Go to <https://discord.com/developers/applications>, click **New Application**, open
+   **Bot**, and copy the token.
+2. Under **Bot → Privileged Gateway Intents**, enable **Server Members Intent**. Enable
+   **Presence Intent** only if you set `ENABLE_PRESENCE_INTENT=true` (Phase 2 "online now").
+3. Invite the bot with **OAuth2 → URL Generator**:
+   - Scopes: `bot`, `applications.commands`
+   - Bot permissions: View Channels, Send Messages, Embed Links, Attach Files, Read Message
+     History, Use External Emojis. Add Mention Everyone only if your `/lfg` ping role isn't
+     mentionable.
+
+   Or fill in this URL (permissions = 379904):
+   `https://discord.com/oauth2/authorize?client_id=<APP_ID>&scope=bot+applications.commands&permissions=379904`
+
+Gateway intents used: `guilds`, `members` (privileged), `voice_states`, and optionally
+`presences` (privileged). Message content is not needed.
+
+### 2. Configure
+```sh
+cp .env.example .env   # set DISCORD_TOKEN; DEV_GUILD_ID makes slash commands appear instantly
+```
+`DEADLOCK_API_KEY` is optional and gives a bigger share of the API's rate limits.
+`STEAM_API_KEY` is optional too. Without it, custom URLs are resolved through the public
+profile XML.
+
+### 3. Run with Docker
+```sh
+docker compose up --build
+```
+The bot container runs `alembic upgrade head` before starting.
+
+### Run locally (for development)
+```sh
+python3.12 -m venv .venv && .venv/bin/pip install -e '.[dev]'
+docker compose up -d postgres redis
+.venv/bin/alembic upgrade head
+.venv/bin/python -m deadbot
+```
+
+### Tests and lint
+```sh
+.venv/bin/pytest
+.venv/bin/ruff check . && .venv/bin/ruff format --check .
+```
+
+## Layout
+```
+src/deadbot/
+  bot/        Discord client, embeds, cogs (one per command group)
+  services/   business logic: linking, sync, synergy, premade inference, profile, teammates
+  data/       Postgres models/repo, Deadlock API client, Steam ID resolution, Redis cache
+  jobs/       APScheduler periodic sync
+  ml/         Phase 3
+```
+
+## Known limitations
+- **Links aren't verified.** Anyone can `/link` any Steam account. Each account can only be
+  linked to one Discord user (`users.verified` is reserved for future Steam OpenID
+  verification).
+- Per-match hero detail, which powers "best duo" and session-premade detection, only covers
+  each user's top 25 teammates (`SYNC_DETAIL_MATES`). Game counts and synergy cover every teammate.
+- "Busiest days" are computed in UTC.

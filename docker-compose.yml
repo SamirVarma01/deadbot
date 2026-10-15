@@ -1,0 +1,46 @@
+services:
+  bot:
+    build: .
+    env_file:
+      - path: .env
+        required: false  # lets `docker compose up postgres redis` work before .env exists
+    environment:
+      DATABASE_URL: postgresql+asyncpg://deadbot:deadbot@postgres:5432/deadbot
+      REDIS_URL: redis://redis:6379/0
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  postgres:
+    image: pgvector/pgvector:pg16
+    environment:
+      POSTGRES_USER: deadbot
+      POSTGRES_PASSWORD: deadbot
+      POSTGRES_DB: deadbot
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deadbot -d deadbot"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  redis:
+    image: redis:7-alpine
+    # Pure cache: bounded memory, evict least-recently-used keys, no persistence needed.
+    command: ["redis-server", "--maxmemory", "256mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+volumes:
+  pgdata:
