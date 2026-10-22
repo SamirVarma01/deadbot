@@ -56,6 +56,27 @@ class Settings(BaseSettings):
     hero_pair_min_games: int = 5
     recent_window_days: int = 90
 
+    # Verification
+    verify_code_ttl_minutes: int = 30
+
+    # Matching: weights of each fit component (normalized to sum to 1 at use)
+    match_w_synergy: float = 0.35
+    match_w_role: float = 0.25
+    match_w_availability: float = 0.25
+    match_w_rank: float = 0.15
+    synergy_scale: float = Field(
+        default=0.10, description="Synergy (win-rate points) that maps to a full score."
+    )
+    rank_gap_scale: float = Field(
+        default=12.0, description="Subrank gap that zeroes the rank score (6 subranks = 1 tier)."
+    )
+
+    # LFG
+    lfg_default_expiry_minutes: int = 60
+    lfg_suggestions: int = 3
+    lfg_max_pings: int = 3
+    lfg_ping_cooldown_minutes: int = 180
+
     log_level: str = "INFO"
 
     @field_validator("database_url")

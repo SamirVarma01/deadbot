@@ -19,6 +19,11 @@ EXTENSIONS = (
     "deadbot.bot.cogs.linking",
     "deadbot.bot.cogs.profile",
     "deadbot.bot.cogs.teammates",
+    "deadbot.bot.cogs.settings",
+    "deadbot.bot.cogs.setup",
+    "deadbot.bot.cogs.lfg",
+    "deadbot.bot.cogs.fill",
+    "deadbot.bot.cogs.synergy",
 )
 
 GENERIC_ERROR = "Something went wrong on our side. Please try again in a bit."
@@ -60,6 +65,11 @@ class DeadBot(commands.Bot):
         self.app = AppContext.create(self.settings)
         for ext in EXTENSIONS:
             await self.load_extension(ext)
+        # Persistent buttons: routed by custom_id, so they keep working after restarts.
+        from deadbot.bot.cogs.linking import VerifyButton
+        from deadbot.bot.lfg_ui import LfgButton
+
+        self.add_dynamic_items(VerifyButton, LfgButton)
         self.tree.on_error = self.on_app_command_error
 
         if self.settings.dev_guild_id:

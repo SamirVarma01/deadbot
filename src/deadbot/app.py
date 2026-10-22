@@ -12,8 +12,11 @@ from deadbot.data.db.engine import make_engine, make_sessionmaker
 from deadbot.data.deadlock_api import DeadlockAPI
 from deadbot.data.steam import SteamClient
 from deadbot.services.catalog import Catalog
+from deadbot.services.features import FeatureService
+from deadbot.services.lfg import LfgService
 from deadbot.services.linking import LinkService
 from deadbot.services.profile import ProfileService
+from deadbot.services.recommend import RecommendService
 from deadbot.services.sync import SyncService
 from deadbot.services.teammates import TeammatesService
 
@@ -31,6 +34,8 @@ class AppContext:
     linking: LinkService
     profile: ProfileService
     teammates: TeammatesService
+    recommend: RecommendService
+    lfg: LfgService
 
     @classmethod
     def create(cls, settings: Settings) -> "AppContext":
@@ -52,9 +57,13 @@ class AppContext:
             api=api,
             catalog=catalog,
             sync=sync,
-            linking=LinkService(steam, api, sessions),
+            linking=LinkService(settings, steam, api, sessions),
             profile=ProfileService(settings, sessions, cache, catalog),
             teammates=TeammatesService(settings, sessions, cache, catalog),
+            recommend=RecommendService(
+                settings, sessions, FeatureService(settings, sessions, catalog)
+            ),
+            lfg=LfgService(sessions),
         )
 
     async def aclose(self) -> None:
