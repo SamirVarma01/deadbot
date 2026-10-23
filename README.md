@@ -141,6 +141,17 @@ docker compose up -d postgres redis
 .venv/bin/python -m deadbot
 ```
 
+### Deploy to a VM
+Any small Ubuntu VM works (production runs on an Azure B1s: 1 vCPU, 1 GB RAM). Only SSH needs
+to be open, because the bot makes outbound connections only.
+```sh
+scp deploy/setup-vm.sh <user>@<ip>: && ssh <user>@<ip> 'bash setup-vm.sh'  # Docker, swap, daily DB backups
+./deploy/deploy.sh <user>@<ip>       # copies the project and .env, then builds and starts the prod stack
+```
+`docker-compose.prod.yml` keeps Postgres and Redis off the host network, uses `POSTGRES_PASSWORD`
+from `.env`, caps Redis at 64 MB and rotates logs. Never run a second copy of the bot with the
+same token, or both copies will answer every command.
+
 ### Tests and lint
 ```sh
 .venv/bin/pytest            # DB integration tests run when local Postgres is up, else skip

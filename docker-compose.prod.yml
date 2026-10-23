@@ -1,0 +1,32 @@
+# Production overrides for a public VM:
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+# - Postgres/Redis are not published on the host (the bot reaches them on the internal network;
+#   the bot itself only makes outbound connections, so the VM needs no open ports besides SSH).
+# - A real database password from .env (POSTGRES_PASSWORD) instead of the dev default.
+# - Log rotation so container logs can't fill the disk.
+
+x-logging: &logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
+services:
+  bot:
+    environment:
+      DATABASE_URL: postgresql+asyncpg://deadbot:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/deadbot
+    logging: *logging
+
+  postgres:
+    environment:
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports: !reset []
+    restart: unless-stopped
+    logging: *logging
+
+  redis:
+    # Sized for a 1 GB VM (Azure B1s); the cache is optional, so a small cap is fine.
+    command: ["redis-server", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru", "--save", ""]
+    ports: !reset []
+    restart: unless-stopped
+    logging: *logging
