@@ -9,6 +9,11 @@ from deadbot.data.db.models import LfgMember, LfgPost, LfgStatus
 from deadbot.services.errors import UserFacingError
 
 MAX_PARTY = 6
+MAX_RANKED_PARTY = 2  # valid_party_sizes in /v1/assets/ranked-seasons
+
+
+def party_limit(mode: str | None) -> int:
+    return MAX_RANKED_PARTY if mode == "ranked" else MAX_PARTY
 
 
 @dataclass(frozen=True)
@@ -45,6 +50,11 @@ class LfgService:
     ) -> LfgState:
         if not 1 <= slots < MAX_PARTY:
             raise UserFacingError(f"You can look for 1-{MAX_PARTY - 1} players.")
+        if slots + 1 > party_limit(mode):
+            raise UserFacingError(
+                f"Ranked parties max out at {MAX_RANKED_PARTY} players, so you can only look "
+                "for 1 more. Use `mode:casual` for a bigger group."
+            )
         try:
             async with self._sessions.begin() as s:
                 post = LfgPost(

@@ -128,13 +128,13 @@ async def test_expired_code(linking, sessions):
 # ---- LFG ----------------------------------------------------------------------------------
 
 
-async def _post(svc: LfgService, owner=1, slots=2):
+async def _post(svc: LfgService, owner=1, slots=2, mode="casual"):
     return await svc.create(
         guild_id=9,
         channel_id=8,
         owner_id=owner,
         slots=slots,
-        mode="ranked",
+        mode=mode,
         note=None,
         expires_minutes=60,
     )
@@ -169,6 +169,14 @@ async def test_lfg_lifecycle(sessions):
     assert state.post.status == LfgStatus.CLOSED
     assert await svc.active_for(9, 2) is None
     await _post(svc)  # closed posts don't block a new one
+
+
+async def test_ranked_lfg_is_limited_to_duos(sessions):
+    svc = LfgService(sessions)
+    with pytest.raises(UserFacingError, match="max out at 2"):
+        await _post(svc, slots=2, mode="ranked")
+    state = await _post(svc, slots=1, mode="ranked")
+    assert state.post.capacity == 2
 
 
 async def test_lfg_concurrent_joins_never_overfill(sessions):
@@ -319,6 +327,23 @@ async def test_recommend_filters_and_ranks(sessions, settings):
     _, fit = await svc.evaluate([1, 2, 6])
     assert fit.synergy == pytest.approx(0.08 / 3)
     assert fit.hour_overlap == pytest.approx(1.0)
+
+
+async def test_ranked_suggestions_skip_players_without_a_rank(sessions, settings):
+    await _seed(sessions)
+    async with sessions.begin() as s:
+        await s.execute(text("UPDATE players SET rank_badge = NULL WHERE account_id = 106"))
+    svc = RecommendService(settings, sessions, FeatureService(settings, sessions, StubCatalog()))
+
+    async def picks(mode):
+        _, recs = await svc.recommend(
+            guild_id=9, member_ids=[1, 2, 6], party_ids=[1], slots=5, mode=mode
+        )
+        return {r.player.discord_id for r in recs}
+
+    assert await picks("ranked") == {2}
+    assert await picks("casual") == {2, 6}
+    assert await picks(None) == {2, 6}
 
 
 async def test_ping_cooldown(sessions, settings):

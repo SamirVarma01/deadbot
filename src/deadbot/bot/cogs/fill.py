@@ -8,7 +8,7 @@ from deadbot.bot.client import DeadBot
 from deadbot.bot.common import human_member_ids, presence, recommendation_lines, require_guild
 from deadbot.bot.embeds import COLOR
 from deadbot.services.errors import UserFacingError
-from deadbot.services.lfg import MAX_PARTY
+from deadbot.services.lfg import party_limit
 
 
 class Fill(commands.Cog):
@@ -48,9 +48,14 @@ class Fill(commands.Cog):
                 mode = mode or state.post.mode
             else:
                 party_ids, source = [interaction.user.id], "just you"
-        open_slots = MAX_PARTY - len(party_ids)
+        limit = party_limit(mode)
+        open_slots = limit - len(party_ids)
         if open_slots <= 0:
-            raise UserFacingError("Your party is already full (6/6).")
+            raise UserFacingError(
+                f"Ranked parties max out at {limit} players, so there's no room to add anyone."
+                if mode == "ranked"
+                else f"Your party is already full ({limit}/{limit})."
+            )
 
         await interaction.response.defer(ephemeral=not share, thinking=True)
         party, picks = await app.recommend.recommend(
@@ -63,7 +68,7 @@ class Fill(commands.Cog):
         )
         e = discord.Embed(title="Who to add", color=COLOR)
         unlinked = f" · {len(party.unlinked)} not linked" if party.unlinked else ""
-        e.description = f"Party from {source}: {len(party_ids)}/{MAX_PARTY}{unlinked}\n\n" + (
+        e.description = f"Party from {source}: {len(party_ids)}/{limit}{unlinked}\n\n" + (
             recommendation_lines(picks)
             or "No eligible players right now. Suggestions only include server members who "
             "linked (and verified, if this server requires it) and haven't opted out."

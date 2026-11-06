@@ -31,6 +31,11 @@ def region_ok(region: str | None, party_regions: set[str]) -> bool:
     return not region or not party_regions or region in party_regions
 
 
+def rank_ok(rank_badge: int | None, mode: str | None) -> bool:
+    """No badge means ranked isn't unlocked yet, or placements aren't finished."""
+    return mode != "ranked" or bool(rank_badge)
+
+
 @dataclass(frozen=True)
 class Party:
     members: list[PlayerFeatures]  # linked members
@@ -103,7 +108,9 @@ class RecommendService:
     ) -> tuple[Party, list[Recommendation]]:
         party = await self.party(party_ids, online)
         users = await self.eligible(guild_id, member_ids, set(party_ids), mode, party.regions)
-        candidates = await self._features.build(users, online)
+        candidates = [
+            c for c in await self._features.build(users, online) if rank_ok(c.rank_badge, mode)
+        ]
         pairs = await self._features.pairs(
             [p.account_id for p in party.members] + [c.account_id for c in candidates]
         )

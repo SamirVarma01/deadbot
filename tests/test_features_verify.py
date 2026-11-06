@@ -6,8 +6,9 @@ import respx
 
 from deadbot.data.steam import ProfileTexts, SteamClient
 from deadbot.services.features import blend_hours, manual_hours, normalize
+from deadbot.services.lfg import MAX_PARTY, MAX_RANKED_PARTY, party_limit
 from deadbot.services.linking import new_code
-from deadbot.services.recommend import mode_ok, region_ok
+from deadbot.services.recommend import mode_ok, rank_ok, region_ok
 
 STEAM64 = 76561198060730596
 
@@ -43,6 +44,17 @@ def test_mode_and_region_filters():
     assert not mode_ok("casual", "ranked")
     assert region_ok(None, {"na"}) and region_ok("na", set()) and region_ok("na", {"na", "eu"})
     assert not region_ok("eu", {"na"})
+
+
+def test_rank_only_matters_for_ranked():
+    assert rank_ok(115, "ranked")
+    assert not rank_ok(None, "ranked") and not rank_ok(0, "ranked")
+    assert rank_ok(None, "casual") and rank_ok(None, None)
+
+
+def test_party_limit_by_mode():
+    assert party_limit("ranked") == MAX_RANKED_PARTY
+    assert party_limit("casual") == party_limit(None) == MAX_PARTY
 
 
 def test_codes_are_unambiguous():

@@ -27,7 +27,7 @@ class Lfg(commands.Cog):
     )
     @app_commands.describe(
         size="How many more players you need",
-        mode="Ranked or casual",
+        mode="Casual or ranked (ranked parties max out at 2 players)",
         note="Anything people should know (heroes, voice, vibe)",
         expires_in="Minutes until the post closes",
     )
@@ -37,7 +37,7 @@ class Lfg(commands.Cog):
         self,
         interaction: discord.Interaction,
         size: app_commands.Range[int, 1, 5],
-        mode: Literal["ranked", "casual"] = "ranked",
+        mode: Literal["casual", "ranked"] = "casual",
         note: app_commands.Range[str, 1, 200] | None = None,
         expires_in: app_commands.Range[int, 10, 240] | None = None,
     ) -> None:

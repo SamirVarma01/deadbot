@@ -26,7 +26,7 @@ affiliated with Valve.
 | `/profile [user] [as_image]` | public | Rank, record, top heroes, hero-type mix, and typical play hours (shown in each viewer's local time). |
 | `/card [user]` | public | PNG card: profile, top heroes, hero-type mix, top teammates with synergy. |
 | `/teammates [user] [sort] [min_games]` | public | Teammates with ≥N games together: win rate together vs. your baseline, synergy, premade count, Steam friends, and best hero duo. Linked members of the server are highlighted. |
-| `/lfg <size> [mode] [note] [expires_in]` | public post | Posts an LFG call with Join / Leave / Close buttons and the best-fitting members to invite. Pings up to 3 of them (respecting opt-outs and a 3-hour per-user cooldown) plus the server's ping role. Updates live; closes when full or on expiry. |
+| `/lfg <size> [mode] [note] [expires_in]` | public post | Posts an LFG call (casual by default; ranked parties max out at 2 players) with Join / Leave / Close buttons and the best-fitting members to invite. Pings up to 3 of them (respecting opt-outs and a 3-hour per-user cooldown) plus the server's ping role. Updates live; closes when full or on expiry. |
 | `/fill [count] [mode] [share]` | ephemeral by default | Recommends who to add to your voice channel (or your active LFG party), each with a one-line reason. |
 | `/synergy <player1> [..player5] [include_me]` | public | Party fit score for a group, with pairwise synergy, hero-type balance, schedule overlap and rank spread. |
 | `/settings view·suggestions·pings·mode·region·availability` | ephemeral | Opt in/out of suggestions and pings; set preferred queue, region, and play hours. |
@@ -55,7 +55,8 @@ neutral (weights in config):
 
 Multi-slot suggestions are greedy: pick the best, add them to the party, re-score the rest.
 Candidates are server members who linked, are opted in, verified (if required), and whose
-preferred mode and region don't conflict. Each pick comes with a reason, e.g.
+preferred mode and region don't conflict. Ranked suggestions also skip anyone with no rank on
+record. Each pick comes with a reason, e.g.
 `covers Brawler · +8% synergy · usually on at this hour · similar rank`.
 
 ## How the data works
@@ -172,6 +173,8 @@ src/deadbot/
 ## Known limitations
 - Unverified links can still use `/profile` and `/teammates`. That data is public on
   deadlock-api.com anyway.
+- Ranked suggestions can't tell "hasn't unlocked ranked" from "still in placements", because
+  the API reports no rank for both, so players in placements are left out too.
 - Card names in scripts DejaVu doesn't cover (e.g. CJK) render as boxes.
 - Per-match hero detail, which powers "best duo" and session-premade detection, only covers
   each user's top 25 teammates (`SYNC_DETAIL_MATES`). Game counts and synergy cover every teammate.
