@@ -61,7 +61,7 @@ def shared_records(
 
 
 def detail_to_fetch(
-    top: list[SharedRecord], have: set[tuple[int, int]], last_seen: int
+    top: list[SharedRecord], have: set[tuple[int, int]], new_ids: set[int]
 ) -> set[int]:
     """Shared matches still lacking the mate's row. After the first sync, only new matches and
     mates new to the top list are requested: some matches have no upstream metadata, and
@@ -71,7 +71,7 @@ def detail_to_fetch(
         mid
         for m in top
         for mid in m.match_ids
-        if (mid, m.mate_id) not in have and (mid > last_seen or m.mate_id not in known_mates)
+        if (mid, m.mate_id) not in have and (mid in new_ids or m.mate_id not in known_mates)
     }
 
 
@@ -134,15 +134,16 @@ class SyncService:
         profiles = {p.account_id: p for p in await self._api.steam_profiles([aid, *top_ids])}
 
         async with self._sessions() as session:
-            player = await repo.get_player(session, aid)
-            last_seen = (player.last_match_id if player else None) or 0
+            # Upstream can backfill matches older than ones already stored, so "new" means
+            # not stored yet rather than a higher match id.
+            new_ids = set(history) - await repo.player_match_ids(session, aid)
             have = await repo.existing_player_matches(
                 session, top_ids, {mid for m in top for mid in m.match_ids}
             )
-        missing = detail_to_fetch(top, have, last_seen)
+        missing = detail_to_fetch(top, have, new_ids)
         metadata = await self._api.bulk_metadata(sorted(missing), top_ids) if missing else []
 
-        new_entries = [e for e in entries if e.match_id > last_seen]
+        new_entries = [e for e in entries if e.match_id in new_ids]
         own_wins = sum(e.won for e in entries)
         now = datetime.now(UTC)
 

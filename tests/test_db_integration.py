@@ -14,12 +14,14 @@ from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from deadbot.data.db import guilds, repo
 from deadbot.data.db.models import Base, LfgStatus, User
+from deadbot.data.deadlock_api.models import MateStats, RankResponse
 from deadbot.data.steam import ProfileTexts
 from deadbot.services.errors import UserFacingError
 from deadbot.services.features import FeatureService
 from deadbot.services.lfg import LfgService
 from deadbot.services.linking import LinkService
 from deadbot.services.recommend import RecommendService
+from deadbot.services.sync import SyncService
 from tests.test_sync_helpers import entry
 
 ADMIN_URL = os.environ.get(
@@ -354,3 +356,46 @@ async def test_ping_cooldown(sessions, settings):
     async with sessions.begin() as s:
         await repo.update_user(s, 3, allow_pings=False, last_pinged_at=None)
     assert await svc.claim_pings([3], limit=2) == []
+
+
+# ---- sync ------------------------------------------------------------------------------
+
+
+@dataclass
+class FakeSyncAPI:
+    history: list
+    friends: list[MateStats] = field(default_factory=list)
+
+    async def match_history(self, account_id):
+        return self.history
+
+    async def mate_stats(self, account_id, *, min_matches_played=None, same_party=False):
+        return self.friends if same_party else []
+
+    async def rank(self, account_id):
+        return RankResponse(badge=0, rank=0, subrank=0)
+
+    async def hero_stats(self, account_ids):
+        return []
+
+    async def steam_profiles(self, account_ids):
+        return []
+
+    async def bulk_metadata(self, match_ids, account_ids):
+        return []
+
+
+async def test_sync_stores_matches_that_show_up_late(sessions, settings):
+    api = FakeSyncAPI([entry(100, start=1_790_000_000), entry(200, start=1_790_100_000)])
+    sync = SyncService(settings, api, sessions)  # type: ignore[arg-type]
+    await sync.sync_account(42)
+
+    # Upstream backfills a match older than the newest stored one, played with a Steam friend.
+    api.history.append(entry(150, start=1_790_050_000))
+    api.friends = [MateStats(mate_id=77, wins=1, matches_played=1, matches=[150])]
+    result = await sync.sync_account(42)
+
+    assert result.new_matches == 1
+    async with sessions() as s:
+        assert await repo.player_match_ids(s, 42) == {100, 150, 200}
+        assert (await repo.get_player(s, 42)).sync_error is None

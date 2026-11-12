@@ -95,12 +95,12 @@ def test_best_pairings_shrinks_and_respects_min_games():
 
 def test_detail_to_fetch_first_sync_requests_everything_missing():
     top = [SharedRecord(7, [1, 2, 3], 2)]
-    assert detail_to_fetch(top, {(1, 7)}, last_seen=0) == {2, 3}
+    assert detail_to_fetch(top, {(1, 7)}, new_ids={1, 2, 3}) == {2, 3}
 
 
 def test_detail_to_fetch_incremental_skips_known_unavailable():
     top = [SharedRecord(7, [1, 2, 10], 2), SharedRecord(8, [1, 2], 1)]
     # match 2 never had metadata for mate 7; mate 8 just entered the top list
     have = {(1, 7)}
-    assert detail_to_fetch(top, have, last_seen=5) == {10, 1, 2}
-    assert detail_to_fetch(top[:1], have, last_seen=5) == {10}
+    assert detail_to_fetch(top, have, new_ids={10}) == {10, 1, 2}
+    assert detail_to_fetch(top[:1], have, new_ids={10}) == {10}
