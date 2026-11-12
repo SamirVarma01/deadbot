@@ -172,3 +172,6 @@ src/deadbot/
 - Per-match hero detail, which powers "best duo" and session-premade detection, only covers
   each user's top 25 teammates (`SYNC_DETAIL_MATES`). Game counts and synergy cover every teammate.
 - "Busiest days" are computed in UTC.
+
+## License
+[MIT](LICENSE)
