@@ -33,7 +33,7 @@ def make_intents(settings: Settings) -> discord.Intents:
     intents = discord.Intents.none()
     intents.guilds = True
     intents.members = True  # privileged: find linked teammates in this server
-    intents.voice_states = True  # Phase 2 /fill reads voice channel members
+    intents.voice_states = True  # /fill reads voice channel members
     intents.presences = settings.enable_presence_intent  # privileged, optional "online now"
     return intents
 

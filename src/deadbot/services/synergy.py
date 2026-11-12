@@ -1,4 +1,4 @@
-"""Empirical pairwise synergy with Bayesian shrinkage (Phase 1, no model).
+"""Empirical pairwise synergy with Bayesian shrinkage.
 
 For a pair (a, b) on the same team:
   p_a, p_b   = each player's win rate *excluding* games played together (no leakage)

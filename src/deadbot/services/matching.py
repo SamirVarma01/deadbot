@@ -2,7 +2,7 @@
 
 Fit of candidate C for party P is a weighted mean of four components, each in [0, 1]
 with 0.5 meaning "neutral / unknown":
-  synergy       mean predicted synergy between C and each member (Phase 1: empirical, shrunk)
+  synergy       mean shrunk synergy between C and each member
   role          how much of P's hero-type gap C's role mix fills
   availability  play-hour overlap with P, plus online now (presence) or usually-plays-now
   rank          closeness of C's rank to P's average

@@ -20,7 +20,7 @@ TS = sa.DateTime(timezone=True)
 
 
 def upgrade() -> None:
-    # pgvector is used from Phase 3 (player embeddings); enable it up front.
+    # For planned player embeddings; enabled up front.
     op.execute("CREATE EXTENSION IF NOT EXISTS vector")
 
     op.create_table(

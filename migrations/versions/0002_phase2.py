@@ -1,4 +1,4 @@
-"""phase 2: link verification, guild config, LFG posts, ping preferences
+"""link verification, guild config, LFG posts, ping preferences
 
 Revision ID: 0002
 Revises: 0001

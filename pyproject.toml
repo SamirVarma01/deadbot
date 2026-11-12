@@ -29,15 +29,6 @@ dev = [
   "fakeredis>=2.23",
   "ruff>=0.6",
 ]
-# Phase 3+
-ml = [
-  "pandas>=2.2",
-  "duckdb>=1.1",
-  "scikit-learn>=1.5",
-  "lightgbm>=4.5",
-  "torch>=2.4",
-  "pgvector>=0.3",
-]
 
 [tool.setuptools.packages.find]
 where = ["src"]

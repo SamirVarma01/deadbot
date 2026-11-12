@@ -13,14 +13,14 @@ from deadbot.data.steam import (
     steam64_to_account_id,
 )
 
-STEAM64 = 76561198060730596
-ACCOUNT = 100464868
+STEAM64 = 76561197972611406
+ACCOUNT = 12345678
 
 
 def test_conversions_round_trip():
     assert steam64_to_account_id(STEAM64) == ACCOUNT
     assert account_id_to_steam64(ACCOUNT) == STEAM64
-    assert account_id_to_steam3(ACCOUNT) == "[U:1:100464868]"
+    assert account_id_to_steam3(ACCOUNT) == "[U:1:12345678]"
 
 
 @pytest.mark.parametrize("bad", [0, -1, 2**32])
@@ -44,9 +44,9 @@ def test_steam64_bounds():
         ("http://steamcommunity.com/id/Some_Name-1", InputKind.VANITY, "Some_Name-1"),
         (str(STEAM64), InputKind.STEAM64, str(STEAM64)),
         (str(ACCOUNT), InputKind.ACCOUNT_ID, str(ACCOUNT)),
-        ("[U:1:100464868]", InputKind.ACCOUNT_ID, str(ACCOUNT)),
-        ("U:1:100464868", InputKind.ACCOUNT_ID, str(ACCOUNT)),
-        ("STEAM_0:0:50232434", InputKind.ACCOUNT_ID, str(ACCOUNT)),
+        ("[U:1:12345678]", InputKind.ACCOUNT_ID, str(ACCOUNT)),
+        ("U:1:12345678", InputKind.ACCOUNT_ID, str(ACCOUNT)),
+        ("STEAM_0:0:6172839", InputKind.ACCOUNT_ID, str(ACCOUNT)),
         ("STEAM_1:1:5", InputKind.ACCOUNT_ID, "11"),
         ("  gabelogannewell  ", InputKind.VANITY, "gabelogannewell"),
     ],
@@ -120,6 +120,15 @@ async def test_resolve_vanity_network_failure_is_user_facing():
     async with httpx.AsyncClient() as http:
         with pytest.raises(SteamResolveError, match="didn't respond"):
             await SteamClient(http, api_key="k").resolve_account_id("bandos")
+
+
+@respx.mock
+async def test_steam_web_api_errors_leave_out_the_key():
+    respx.get(SteamClient.API_URL).respond(500)
+    async with httpx.AsyncClient() as http:
+        with pytest.raises(httpx.HTTPStatusError) as e:
+            await SteamClient(http, api_key="secret-key").resolve_vanity("bandos")
+    assert "secret-key" not in str(e.value)
 
 
 async def test_numeric_inputs_need_no_network():

@@ -4,17 +4,13 @@ A Discord bot that helps Deadlock players find teammates. Link a Steam account a
 shows your playstyle and the people you play best with. It also runs LFG posts and suggests
 which server members would fit your party best, with a reason for every suggestion.
 
-Data comes from [deadlock-api.com](https://deadlock-api.com), a community API that is not
-affiliated with Valve.
+deadbot is an unofficial fan project and is not affiliated with Valve. Match data comes
+from [deadlock-api.com](https://deadlock-api.com), a community API.
 
-## Status
-
-| Phase | Scope | State |
-|---|---|---|
-| 1 | Scaffold, DB, API client, `/link`, `/unlink`, `/profile`, `/teammates`, sync job | **done** |
-| 2 | Steam link verification, `/card`, `/settings`, `/setup`, `/lfg`, `/fill`, `/synergy`, matching | **done** |
-| 3 | Dump ingestion, hero role clustering, LightGBM and two-tower synergy models, eval | planned |
-| 4 | Fly.io deploy, structured logging, usage metrics | planned |
+## Roadmap
+- Usage metrics: servers, linked users, weekly active users
+- Hero roles clustered from item builds, instead of Valve's four hero types
+- A synergy model trained on the public match dumps, compared against the current score
 
 ## Commands
 
@@ -73,10 +69,10 @@ record. Each pick comes with a reason, e.g.
 - **There is no MMR.** All MMR endpoints are deprecated. Rank is the badge
   (`tier*10 + subrank`) from `/v1/players/{id}/rank`.
 - **Roles are Valve's official `hero_type`** (brawler, marksman, mystic, assassin) for now.
-  Phase 3 adds roles clustered from item builds.
+  Roles clustered from item builds are on the roadmap.
 - `won = match_result == player_team`. `player_match_outcome` is 0 for older matches.
 
-### Synergy (Phase 1)
+### Synergy
 For a pair on the same team:
 
 ```
@@ -90,9 +86,7 @@ synergy   = shrunk − expected
 Postgres only stores data about linked users. On average that's roughly 0.5 MB per user:
 their own match rows plus per-match detail for their top 25 teammates. Redis is a bounded
 LRU cache (256 MB in compose) for API responses and computed reports. Report cache keys
-include `last_synced_at`, so they invalidate themselves after each sync. The 539 GB
-`match_player` dump is never copied into Postgres. Phase 3 reads only the columns it needs
-from the public Parquet lake with DuckDB and writes the model outputs back.
+include `last_synced_at`, so they invalidate themselves after each sync.
 
 ### Schema
 `players`, `users`, `matches`, `match_players`, `match_party_links`, `pair_stats`,
@@ -155,7 +149,7 @@ same token, or both copies will answer every command.
 
 ### Tests and lint
 ```sh
-.venv/bin/pytest            # DB integration tests run when local Postgres is up, else skip
+.venv/bin/pytest            # DB tests skip if Postgres is down; TEST_ADMIN_DATABASE_URL points them elsewhere
 .venv/bin/ruff check . && .venv/bin/ruff format --check .
 ```
 
@@ -167,7 +161,6 @@ src/deadbot/
               profile, teammates, matching (pure scoring), features, recommend, lfg, card
   data/       Postgres models/repo, Deadlock API client, Steam ID resolution, Redis cache
   jobs/       APScheduler periodic sync
-  ml/         Phase 3
 ```
 
 ## Known limitations

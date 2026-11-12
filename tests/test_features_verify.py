@@ -10,7 +10,7 @@ from deadbot.services.lfg import MAX_PARTY, MAX_RANKED_PARTY, party_limit
 from deadbot.services.linking import new_code
 from deadbot.services.recommend import mode_ok, rank_ok, region_ok
 
-STEAM64 = 76561198060730596
+STEAM64 = 76561197972611406
 
 
 def test_manual_hours_converts_local_to_utc():

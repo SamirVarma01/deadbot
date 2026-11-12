@@ -5,5 +5,5 @@ __pycache__/
 .env
 .pytest_cache/
 .ruff_cache/
-data/
+/data/
 *.parquet
